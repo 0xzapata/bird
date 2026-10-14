@@ -4,6 +4,7 @@
  */
 
 import { type Cookie, getCookies } from '@steipete/sweet-cookie';
+import { type Accounts, loadAccounts, resolveProfile } from './profiles.js';
 
 export interface TwitterCookies {
   authToken: string | null;
@@ -107,6 +108,7 @@ async function readTwitterCookiesFromBrowser(options: {
   chromeProfile?: string;
   firefoxProfile?: string;
   cookieTimeoutMs?: number;
+  profile?: string;
 }): Promise<CookieExtractionResult> {
   const warnings: string[] = [];
   const out = buildEmpty();
@@ -162,9 +164,23 @@ export async function extractCookiesFromFirefox(profile?: string): Promise<Cooki
   return readTwitterCookiesFromBrowser({ source: 'firefox', firefoxProfile: profile });
 }
 
+/** A broken profile yields empty credentials plus a warning; it never falls back to another source. */
+function fromProfile(name: string, accounts?: Accounts): CookieExtractionResult {
+  try {
+    const { authToken, ct0 } = resolveProfile(name, accounts);
+    return {
+      cookies: { authToken, ct0, cookieHeader: cookieHeader(authToken, ct0), source: `profile "${name}"` },
+      warnings: [],
+    };
+  } catch (error) {
+    return { cookies: buildEmpty(), warnings: [error instanceof Error ? error.message : String(error)] };
+  }
+}
+
 /**
  * Resolve Twitter credentials from multiple sources.
- * Priority: CLI args > environment variables > browsers (ordered).
+ * Priority: CLI args > --profile > environment variables > default profile > browsers (ordered).
+ * An account profile replaces browser extraction entirely; browser profiles/sources are then ignored.
  */
 export async function resolveCredentials(options: {
   authToken?: string;
@@ -173,6 +189,7 @@ export async function resolveCredentials(options: {
   chromeProfile?: string;
   firefoxProfile?: string;
   cookieTimeoutMs?: number;
+  profile?: string;
 }): Promise<CookieExtractionResult> {
   const warnings: string[] = [];
   const cookies = buildEmpty();
@@ -196,12 +213,21 @@ export async function resolveCredentials(options: {
     }
   }
 
+  if (options.profile && !(cookies.authToken && cookies.ct0)) {
+    return fromProfile(options.profile);
+  }
+
   readEnvCookie(cookies, ['AUTH_TOKEN', 'TWITTER_AUTH_TOKEN'], 'authToken');
   readEnvCookie(cookies, ['CT0', 'TWITTER_CT0'], 'ct0');
 
   if (cookies.authToken && cookies.ct0) {
     cookies.cookieHeader = cookieHeader(cookies.authToken, cookies.ct0);
     return { cookies, warnings };
+  }
+
+  const accounts = loadAccounts();
+  if (accounts.default) {
+    return fromProfile(accounts.default, accounts);
   }
 
   const sourcesToTry = resolveSources(options.cookieSource);

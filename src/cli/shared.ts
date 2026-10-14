@@ -173,6 +173,7 @@ function loadConfig(warn: (message: string) => void): BirdConfig {
 type CredentialsOptions = {
   authToken?: string;
   ct0?: string;
+  profile?: string;
   chromeProfile?: string;
   firefoxProfile?: string;
   cookieSource?: CookieSource[];
@@ -280,14 +281,26 @@ export function createCliContext(normalizedArgs: string[], env: NodeJS.ProcessEn
     const cookieSource = opts.cookieSource?.length
       ? opts.cookieSource
       : (resolveCookieSourceOrder(config.cookieSource) ?? COOKIE_SOURCES);
-    return resolveCredentials({
+    const browserFlags = opts.chromeProfile || opts.firefoxProfile || opts.cookieSource?.length;
+    const result = resolveCredentials({
       authToken: opts.authToken,
       ct0: opts.ct0,
+      profile: opts.profile || env.BIRD_PROFILE,
       cookieSource,
       chromeProfile: opts.chromeProfile || config.chromeProfile,
       firefoxProfile: opts.firefoxProfile || config.firefoxProfile,
       cookieTimeoutMs: resolveCookieTimeoutFromOptions(opts),
     });
+    // An account profile replaces browser extraction, so browser flags have no effect alongside it.
+    return opts.profile && browserFlags
+      ? result.then((r) => ({
+          ...r,
+          warnings: [
+            ...r.warnings,
+            '--profile overrides browser cookie options; --chrome-profile/--firefox-profile/--cookie-source are ignored',
+          ],
+        }))
+      : result;
   }
 
   function loadMedia(opts: { media: string[]; alts: string[] }): MediaSpec[] {

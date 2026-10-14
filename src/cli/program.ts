@@ -6,6 +6,7 @@ import { registerHomeCommand } from '../commands/home.js';
 import { registerListsCommand } from '../commands/lists.js';
 import { registerNewsCommand } from '../commands/news.js';
 import { registerPostCommands } from '../commands/post.js';
+import { registerProfileCommand } from '../commands/profile.js';
 import { registerQueryIdsCommand } from '../commands/query-ids.js';
 import { registerReadCommands } from '../commands/read.js';
 import { registerSearchCommands } from '../commands/search.js';
@@ -38,6 +39,7 @@ export const KNOWN_COMMANDS = new Set([
   'help',
   'whoami',
   'check',
+  'profile',
 ]);
 
 export function createProgram(ctx: CliContext): Command {
@@ -107,13 +109,14 @@ export function createProgram(ctx: CliContext): Command {
       )}\n${ctx.colors.muted(
         `  Supports: chromeProfile, firefoxProfile, cookieSource, cookieTimeoutMs, timeoutMs, quoteDepth`,
       )}\n\n${ctx.colors.section('Env')}\n${ctx.colors.muted(
-        `  ${ctx.colors.option('NO_COLOR')}, ${ctx.colors.option('BIRD_TIMEOUT_MS')}, ${ctx.colors.option('BIRD_COOKIE_TIMEOUT_MS')}, ${ctx.colors.option('BIRD_QUOTE_DEPTH')}, ${ctx.colors.option('BIRD_RATE_LIMIT_DIR')}`,
+        `  ${ctx.colors.option('NO_COLOR')}, ${ctx.colors.option('BIRD_TIMEOUT_MS')}, ${ctx.colors.option('BIRD_COOKIE_TIMEOUT_MS')}, ${ctx.colors.option('BIRD_QUOTE_DEPTH')}, ${ctx.colors.option('BIRD_RATE_LIMIT_DIR')}, ${ctx.colors.option('BIRD_PROFILE')}, ${ctx.colors.option('BIRD_ACCOUNTS_FILE')}`,
       )}`,
   );
 
   program
     .option('--auth-token <token>', 'Twitter auth_token cookie')
     .option('--ct0 <token>', 'Twitter ct0 cookie')
+    .option('--profile <name>', 'Account profile (bird profile list); overrides browser cookie options')
     .option('--chrome-profile <name>', 'Chrome profile name for cookie extraction', ctx.config.chromeProfile)
     .option('--firefox-profile <name>', 'Firefox profile name for cookie extraction', ctx.config.firefoxProfile)
     .option('--cookie-timeout <ms>', 'Cookie extraction timeout in milliseconds (keychain/OS helpers)')
@@ -143,6 +146,7 @@ export function createProgram(ctx: CliContext): Command {
   registerUserTweetsCommand(program, ctx);
   registerNewsCommand(program, ctx);
   registerCheckCommand(program, ctx);
+  registerProfileCommand(program, ctx);
 
   return program;
 }
